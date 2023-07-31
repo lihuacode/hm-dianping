@@ -1,7 +1,9 @@
 package com.hmdp.service.impl;
 
 import cn.hutool.core.util.RandomUtil;
+import com.baomidou.mybatisplus.extension.conditions.query.QueryChainWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.User;
 import com.hmdp.mapper.UserMapper;
@@ -39,5 +41,36 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         log.debug("发送短信验证码成功，验证码：{}",code);
         // 6、返回ok
         return Result.ok();
+    }
+
+    @Override
+    public Result login(LoginFormDTO loginForm, HttpSession session) {
+        // 1、校验手机号
+        String phone = loginForm.getPhone();
+        if (phone == null || RegexUtils.isPhoneInvalid(phone)){
+            return Result.fail("手机号格式不对");
+        }
+        // 校验验证码
+        Object cacheCode = session.getAttribute("code");
+        String code = loginForm.getCode();
+        if (code == null || !cacheCode.toString().equals(code)){
+            return Result.fail("验证码不对");
+        }
+        // 查询是否已注册
+        User user = query().eq("phone", phone).one();
+        // 没注册就注册
+        if (user == null){
+            user = createUserWithPhone(phone);
+        }
+        // 已注册直接存入session
+        session.setAttribute("user",user);
+        return Result.ok();
+    }
+
+    private User createUserWithPhone(String phone) {
+        User user = new User();
+        user.setPhone(phone);
+        user.setNickName("user_"+RandomUtil.randomNumbers(10));
+        return user;
     }
 }
